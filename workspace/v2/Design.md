@@ -44,10 +44,10 @@ Chaque channel doit gérer une déconnexion initiée localement ou à distance.
 * À distance, les octets déjà envoyés avant la déconnexion doivent rester lisibles. Une fois épuisés, les lectures signalent la déconnexion.
 * Les écritures effectuées après que le remote ait déconnecté ne sont pas garanties : elles peuvent être acceptées mais perdues.
 
-Pour modéliser l’état, chaque endpoint possède deux booléens :
+Pour modéliser l’état, chaque endpoint possède un booléen :
 
 * `localDisconnected` pour sa propre déconnexion,
-* `remoteDisconnected` pour celle de l’autre côté.
+* On accede à l’état de déconnexion distante via `remote.localDisconnected`.
 
 Ces deux états sont partagés entre les extrémités pour garantir une propagation correcte.
 

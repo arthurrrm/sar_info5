@@ -21,12 +21,11 @@ import java.util.concurrent.*;
 import info5.sar.utils.CircularBuffer;
 
 public class CBroker extends Broker {
-  private static final ConcurrentHashMap<String, CBroker> registry = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Integer, SynchronousQueue<CChannel>> rdvs = new ConcurrentHashMap<>();
 
   public CBroker(String name) {
     super(name);
-    CBroker key = registry.put(name, this);
+    Broker key = BrokerManager.registerBroker(this);
     if (key != null) {
       throw new IllegalArgumentException("Broker name must be unique: " + name);
     }
@@ -38,6 +37,7 @@ public class CBroker extends Broker {
     try {
       return q.take(); // bloque jusqu'à ce qu'un connect donne un channel
     } catch (InterruptedException e) {
+      System.err.println("[CBroker] accept interrupted: " + e);
       Thread.currentThread().interrupt();
       return null;
     }
@@ -45,7 +45,7 @@ public class CBroker extends Broker {
 
   @Override
   public Channel connect(String remoteName, int port) {
-    CBroker remote = registry.get(remoteName);
+    CBroker remote = (CBroker) BrokerManager.getBroker(remoteName);
     if (remote == null) {
       return null; // spec : broker inexistant => null
     }
@@ -63,9 +63,11 @@ public class CBroker extends Broker {
 
     try {
       if (!q.offer(remoteChannel, 5, TimeUnit.SECONDS)) {
-        return null; // timeout simplifié
+        System.err.println("[CBroker] connect timeout: no server on port " + port);
+        return null;
       }
     } catch (InterruptedException e) {
+      System.err.println("[CBroker] connect interrupted: " + e);
       Thread.currentThread().interrupt();
       return null;
     }

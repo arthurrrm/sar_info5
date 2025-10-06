@@ -22,8 +22,8 @@ public class CChannel extends Channel {
   private final String remoteName;
   private final CircularBuffer writeBuffer; // buffer dans lequel on écrit localement
   private final CircularBuffer readBuffer; // buffer dont on lit localement
-  private volatile boolean localDisconnected = false;
-  private volatile boolean remoteDisconnected = false;
+  private boolean localDisconnected = false;
+  private boolean halfDisconnected = false;
   private CChannel remote;
 
   protected CChannel(Broker broker, String remoteName,
@@ -45,12 +45,18 @@ public class CChannel extends Channel {
 
   @Override
   public int read(byte[] bytes, int offset, int length) {
+    if (offset < 0 || length < 0 || offset + length > bytes.length) {
+      throw new IllegalArgumentException("Invalid offset/length");
+    }
     if (localDisconnected)
-      throw new IllegalStateException("Channel disconnected");
+      throw new IllegalStateException("local channel disconnected on read");
+
+    if (disconnected())
+      throw new IllegalStateException("channel disconnected on read");
 
     int n = 0;
     synchronized (readBuffer) {
-      while (n == 0 && !remoteDisconnected && readBuffer.empty()) {
+      while (n == 0 && !remote.localDisconnected && readBuffer.empty()) {
         try {
           readBuffer.wait();
         } catch (InterruptedException e) {
@@ -61,22 +67,24 @@ public class CChannel extends Channel {
       while (n < length && !readBuffer.empty()) {
         bytes[offset + n] = readBuffer.pull();
         n++;
+        readBuffer.notifyAll();
       }
     }
-    if (n == 0 && disconnected())
-      throw new IllegalStateException("Channel disconnected");
     return n;
   }
 
   @Override
   public int write(byte[] bytes, int offset, int length) {
+    if (offset < 0 || length < 0 || offset + length > bytes.length) {
+      throw new IllegalArgumentException("Invalid offset/length");
+    }
     if (localDisconnected)
-      throw new IllegalStateException("Channel disconnected");
+      throw new IllegalStateException("local channel disconnected on write");
 
     int n = 0;
     synchronized (writeBuffer) {
       for (int i = 0; i < length; i++) {
-        while (writeBuffer.full() && !remoteDisconnected) {
+        while (writeBuffer.full() && !remote.localDisconnected) {
           try {
             writeBuffer.wait();
           } catch (InterruptedException e) {
@@ -84,7 +92,7 @@ public class CChannel extends Channel {
             return n;
           }
         }
-        if (remoteDisconnected)
+        if (remote.localDisconnected)
           break;
         writeBuffer.push(bytes[offset + i]);
         n++;
@@ -99,7 +107,7 @@ public class CChannel extends Channel {
     if (!localDisconnected) {
       localDisconnected = true;
       if (remote != null) {
-        remote.remoteDisconnected = true;
+        remote.halfDisconnected = true;
         synchronized (remote.readBuffer) {
           remote.readBuffer.notifyAll();
         }
@@ -112,6 +120,15 @@ public class CChannel extends Channel {
 
   @Override
   public boolean disconnected() {
-    return localDisconnected || remoteDisconnected;
+    if (localDisconnected)
+      return true;
+    if (halfDisconnected) {
+      synchronized (readBuffer) {
+        if (!readBuffer.empty())
+          return false;
+      }
+      return true;
+    }
+    return false;
   }
 }
