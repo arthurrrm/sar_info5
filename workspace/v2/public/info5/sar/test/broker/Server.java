@@ -1,4 +1,4 @@
-package info5.sar.test;
+package info5.sar.test.broker;
 
 import info5.sar.channels.CBroker;
 import info5.sar.channels.Channel;

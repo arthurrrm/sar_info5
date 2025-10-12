@@ -1,4 +1,4 @@
-package info5.sar.test;
+package info5.sar.test.broker;
 
 import info5.sar.channels.CBroker;
 import info5.sar.channels.Channel;
@@ -9,7 +9,7 @@ public class Client implements Runnable {
     private final int port;
     private final String clientName;
 
-
+    // TODO: remove broker from constructor, get it from current Thread:Task instead. (everywhere else too)
     public Client(CBroker b, String serverName, int port, String clientName) {
         this.broker = b;
         this.serverName = serverName;

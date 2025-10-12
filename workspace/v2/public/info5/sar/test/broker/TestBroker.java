@@ -1,8 +1,9 @@
-package info5.sar.test;
+package info5.sar.test.broker;
 
 import info5.sar.channels.BrokerManager;
 import info5.sar.channels.CBroker;
 import info5.sar.channels.Channel;
+import info5.sar.channels.Task;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -115,16 +116,16 @@ public class TestBroker {
         CBroker b = new CBroker(bBName);
         int port = 10000 + UNIQUE.get() % 1000;
 
-        Thread server = new Thread(() -> {
+        Task server = new Task("server-echo-basic", b);
+        server.start(() -> {
             Channel ch = b.accept(port);
             byte[] buf = new byte[64];
-            int n = ch.read(buf, 0, buf.length); // read whatever came
+            int n = ch.read(buf, 0, buf.length);
             // echo back the same number of bytes
             int off = 0;
             while (off < n) off += ch.write(buf, off, n - off);
             ch.disconnect();
-        }, "server-echo-basic");
-        server.start();
+        });
 
         byte[] msg = "Hello".getBytes(StandardCharsets.UTF_8);
         Channel ch = a.connect(bBName, port);
@@ -147,14 +148,14 @@ public class TestBroker {
         CBroker b = new CBroker(bBName);
         int port = 11000 + UNIQUE.get() % 1000;
 
-        Thread server = new Thread(() -> {
+        Task server = new Task("server-disconnect", b);
+        server.start(() -> {
             Channel ch = b.accept(port);
             byte[] data = "XYZ".getBytes(StandardCharsets.UTF_8);
             ch.write(data, 0, data.length);
             // remote half-disconnect
             ch.disconnect();
-        }, "server-disconnect");
-        server.start();
+        });
 
         Channel ch = a.connect(bBName, port);
         assertTrue(ch != null, "connect returned null");
@@ -205,13 +206,13 @@ public class TestBroker {
         CBroker b = new CBroker(bBName);
         int port = 12000 + UNIQUE.get() % 1000;
 
-        Thread server = new Thread(() -> {
+        Task server = new Task("server-invalid-args", b);
+        server.start(() -> {
             Channel ch = b.accept(port);
             // keep channel open a bit so client can try invalid ops
             try { Thread.sleep(200); } catch (InterruptedException ignored) {}
             ch.disconnect();
-        }, "server-invalid-args");
-        server.start();
+        });
 
         Channel ch = a.connect(bBName, port);
         assertTrue(ch != null, "connect returned null");
@@ -238,7 +239,8 @@ public class TestBroker {
         int port = 13000 + UNIQUE.get() % 1000;
 
         CountDownLatch served = new CountDownLatch(2);
-        Thread server = new Thread(() -> {
+        Task server = new Task("server-seq", b);
+        server.start(() -> {
             for (int i = 0; i < 2; i++) {
                 Channel ch = b.accept(port);
                 byte[] buf = new byte[64];
@@ -247,8 +249,7 @@ public class TestBroker {
                 ch.disconnect();
                 served.countDown();
             }
-        }, "server-seq");
-        server.start();
+        });
 
         Runnable clientTask = ( ) -> {
             String txt = "hello-" + Thread.currentThread().getName();
@@ -263,10 +264,10 @@ public class TestBroker {
             ch.disconnect();
         };
 
-        Thread c1 = new Thread(clientTask, "c1");
-        Thread c2 = new Thread(clientTask, "c2");
-        c1.start(); c1.join();
-        c2.start(); c2.join();
+    Task c1 = new Task("c1", a);
+    Task c2 = new Task("c2", a);
+    c1.start(clientTask); c1.join();
+    c2.start(clientTask); c2.join();
         assertTrue(served.await(2, TimeUnit.SECONDS), "server did not serve both clients in time");
 
         server.join(1000);

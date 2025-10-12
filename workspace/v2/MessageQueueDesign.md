@@ -17,3 +17,9 @@ puis on alloue un tableau de la taille du message,
 et on recoit le message, le tout dans un boucle qui fini seulement quand `read` confirme avoir tout recu.
 
 
+
+# Queue Broker Design (asynchrone)
+
+
+
+
