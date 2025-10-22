@@ -1,0 +1,24 @@
+@startuml msg
+title Chronogram
+
+participant P1
+participant P2
+participant P3
+
+' --- M1 ---
+
+P2 -> P1 : M(10)
+note left of P1: >10
+
+P1 --> P2 : Ack (10)
+
+
+    
+' --- M2 ---
+note right of P3: impossible 8 avant 10 (fifo lossless)
+P3 ---> P2 : M(8)
+note right of P2: | M | 10 |✔️
+
+
+
+@enduml

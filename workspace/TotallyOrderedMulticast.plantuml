@@ -1,0 +1,31 @@
+@startuml msg
+title Chronogram
+
+participant P1
+participant P2
+participant P3
+
+' --- M1 ---
+P2 -> P1 : M1 (LG, num)
+P2 -> P3 : M1
+P2 -> P2 : M1
+
+P1 --> P1 : Ack 
+P1 --> P2 : Ack (LG, num)
+P1 --> P3 : Ack 
+
+P2 --> P1 : Ack 
+P2 --> P2 : Ack 
+P2 --> P3 : Ack 
+
+P3 --> P2 : Ack
+P3 --> P3 : Ack
+P3 --> P1 : Ack
+    
+' --- M2 ---
+P3 -> P1 : M2
+P3 -> P2 : M2
+P3 -> P3 : M2
+
+
+@enduml
